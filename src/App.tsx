@@ -48,7 +48,12 @@ export function App() {
   }
 
   async function handleLogout() {
-    await signOut();
+    try {
+      await signOut();
+    } finally {
+      // Force AuthGate to re-read the cleared local session immediately.
+      window.location.reload();
+    }
   }
 
   function exportCsv() {

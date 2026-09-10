@@ -13,7 +13,11 @@ export async function getCurrentUser() {
 }
 
 export async function signOut() {
-  if (supabase) await supabase.auth.signOut();
+  if (supabase) {
+    // Local scope clears the browser session even when the Supabase API is
+    // temporarily unreachable. A logout action must never depend on network.
+    await supabase.auth.signOut({ scope: "local" });
+  }
 }
 
 export async function uploadReceipt(file: File, userId: string, tourId: string) {
