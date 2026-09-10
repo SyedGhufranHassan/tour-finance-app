@@ -71,12 +71,15 @@ export function App() {
     </aside>
     <main className="main">
       <header className="topbar"><button className="mobile-menu icon-button" aria-label="Menu"><Menu size={21} /></button><div><p className="eyebrow">Thursday, 17 September 2026</p><h1>{page}</h1></div><div className="top-actions"><label className="search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search transactions..." /></label><button className="avatar">A</button></div></header>
-      {page === "Dashboard" && <Dashboard data={data} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} cashIncome={cashIncome} cashExpenses={cashExpenses} categoriesTotal={categoriesTotal} recent={recent} people={people} members={members} memberPaid={memberPaid} onAdd={(kind) => setModal(kind)} />}
-      {page === "Income" && <TransactionPage title="Income" subtitle="Member contributions and money received" type="income" data={data} people={people} members={members} query={query} onAdd={() => setModal("income")} onDelete={handleDelete} />}
-      {page === "Expenses" && <TransactionPage title="Expenses" subtitle="Every rupee spent, traceable" type="expense" data={data} people={people} members={members} query={query} onAdd={() => setModal("expense")} onDelete={handleDelete} />}
-      {page === "Members" && <MembersPage data={data} people={people} memberPaid={memberPaid} onAdd={() => setModal("member")} />}
-      {page === "Reports" && <Reports data={data} people={people} members={members} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} categoriesTotal={categoriesTotal} exportCsv={exportCsv} exportPdf={(mode) => downloadReportPdf(data, mode)} />}
+      <div className="page-transition" key={page}>
+        {page === "Dashboard" && <Dashboard data={data} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} cashIncome={cashIncome} cashExpenses={cashExpenses} categoriesTotal={categoriesTotal} recent={recent} people={people} members={members} memberPaid={memberPaid} onAdd={(kind) => setModal(kind)} />}
+        {page === "Income" && <TransactionPage title="Income" subtitle="Member contributions and money received" type="income" data={data} people={people} members={members} query={query} onAdd={() => setModal("income")} onDelete={handleDelete} />}
+        {page === "Expenses" && <TransactionPage title="Expenses" subtitle="Every rupee spent, traceable" type="expense" data={data} people={people} members={members} query={query} onAdd={() => setModal("expense")} onDelete={handleDelete} />}
+        {page === "Members" && <MembersPage data={data} people={people} memberPaid={memberPaid} onAdd={() => setModal("member")} />}
+        {page === "Reports" && <Reports data={data} people={people} members={members} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} categoriesTotal={categoriesTotal} exportCsv={exportCsv} exportPdf={(mode) => downloadReportPdf(data, mode)} />}
+      </div>
     </main>
+    <nav className="mobile-nav" aria-label="Mobile navigation">{([["Dashboard", LayoutDashboard], ["Income", ArrowDownLeft], ["Expenses", ArrowUpRight], ["Members", Users], ["Reports", BarChart3]] as const).map(([label, Icon]) => <button key={label} className={page === label ? "mobile-nav-item active" : "mobile-nav-item"} onClick={() => setPage(label)}><Icon size={18} /><span>{label}</span></button>)}</nav>
     {modal === "income" && <IncomeForm data={data} people={people} members={members} onClose={() => setModal(null)} onSaved={(next) => { refresh(next); setModal(null); }} />}
     {modal === "expense" && <ExpenseForm data={data} people={people} onClose={() => setModal(null)} onSaved={(next) => { refresh(next); setModal(null); }} />}
     {modal === "member" && <MemberForm data={data} onClose={() => setModal(null)} onSaved={(next) => { refresh(next); setModal(null); }} />}

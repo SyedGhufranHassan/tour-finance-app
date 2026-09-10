@@ -15,11 +15,16 @@ export function downloadReportPdf(data: AppData, mode: PdfMode = "complete") {
   const members = Object.fromEntries(data.members.map((member) => [member.id, member]));
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth();
   let y = 54;
 
   const header = (title: string) => {
     doc.setFillColor(14, 23, 38);
     doc.rect(0, 0, 595, 112, "F");
+    doc.setFillColor(24, 76, 78);
+    doc.triangle(300, 112, 420, 28, 540, 112, "F");
+    doc.setFillColor(31, 104, 91);
+    doc.triangle(390, 112, 480, 50, 595, 112, "F");
     doc.setFillColor(31, 196, 155);
     doc.circle(45, 42, 14, "F");
     writeLine(doc, "KUMRAT TOUR FINANCE", 38, 10, [144, 229, 204]);
@@ -41,6 +46,16 @@ export function downloadReportPdf(data: AppData, mode: PdfMode = "complete") {
     doc.setDrawColor(230, 235, 240);
     doc.line(42, y + 8, 553, y + 8);
     y += 23;
+  };
+  const footer = () => {
+    const pageCount = doc.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page);
+      doc.setDrawColor(218, 231, 227);
+      doc.line(42, pageHeight - 34, pageWidth - 42, pageHeight - 34);
+      writeLine(doc, "Kumrat Tour Finance · Confidential financial report", pageHeight - 19, 8, [111, 133, 143]);
+      doc.text(`Page ${page} of ${pageCount}`, pageWidth - 42, pageHeight - 19, { align: "right" });
+    }
   };
 
   if (mode === "complete") {
@@ -66,6 +81,14 @@ export function downloadReportPdf(data: AppData, mode: PdfMode = "complete") {
     section("Income transactions");
     data.incomes.forEach((income) => row(`${people[members[income.memberId]?.personId] ?? "Member"} · ${income.date} ${income.time}`, `${formatRs(income.amount)} · ${income.paymentMethod}`));
   }
+  if (mode === "complete") {
+    section("Expense categories");
+    const categories = [...new Set(data.expenses.map((expense) => expense.category))];
+    categories.forEach((category) => row(category, formatRs(data.expenses.filter((expense) => expense.category === category).reduce((sum, expense) => sum + expense.amount, 0))));
+    section("Payment methods");
+    const methods = [...new Set([...data.incomes.map((item) => item.paymentMethod), ...data.expenses.map((item) => item.paymentMethod)])];
+    methods.forEach((method) => row(method, `In ${formatRs(data.incomes.filter((item) => item.paymentMethod === method).reduce((sum, item) => sum + item.amount, 0))} · Out ${formatRs(data.expenses.filter((item) => item.paymentMethod === method).reduce((sum, item) => sum + item.amount, 0))}`));
+  }
   if (mode === "complete" || mode === "expenses") {
     section("Expense transactions");
     data.expenses.forEach((expense) => row(`${expense.category} · ${expense.description} · ${expense.location}`, `${formatRs(expense.amount)} · ${people[expense.paidByPersonId] ?? "Unknown"}`));
@@ -78,5 +101,6 @@ export function downloadReportPdf(data: AppData, mode: PdfMode = "complete") {
       if (received || paid) row(person.name, `Received ${formatRs(received)} · Paid ${formatRs(paid)}`);
     });
   }
+  footer();
   doc.save(`kumrat-${mode}-report.pdf`);
 }
