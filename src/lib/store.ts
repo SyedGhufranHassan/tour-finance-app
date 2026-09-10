@@ -1,13 +1,7 @@
 import type { AppData, Expense, Income, Member, Person } from "../types";
 import { uid } from "./utils";
 
-const key = "kumrat-tour-finance-data";
-const initialPeople: Person[] = [
-  { id: "p-ali", name: "Ali" },
-  { id: "p-ahmed", name: "Ahmed" },
-  { id: "p-hassan", name: "Hassan" },
-  { id: "p-usman", name: "Usman" },
-];
+const key = "kumrat-tour-finance-data-v2";
 const initialData: AppData = {
   tour: {
     id: "tour-kumrat-2k26",
@@ -18,21 +12,10 @@ const initialData: AppData = {
     endDate: "2026-09-18",
     description: "Imamia Colony → Kumrat Valley → Imamia Colony",
   },
-  people: initialPeople,
-  members: [
-    { id: "m-ahmed", personId: "p-ahmed", expectedContribution: 7000 },
-    { id: "m-hassan", personId: "p-hassan", expectedContribution: 7000 },
-    { id: "m-usman", personId: "p-usman", expectedContribution: 5000 },
-  ],
-  incomes: [
-    { id: "i-ahmed", memberId: "m-ahmed", amount: 5000, paymentMethod: "Cash", receivedByPersonId: "p-ali", date: "2026-09-17", time: "09:15", notes: "Initial contribution" },
-    { id: "i-hassan", memberId: "m-hassan", amount: 7000, paymentMethod: "Easypaisa", receivedByPersonId: "p-ali", date: "2026-09-17", time: "09:20", notes: "Full contribution" },
-  ],
-  expenses: [
-    { id: "e-vehicle", category: "Vehicle", amount: 25000, description: "Hiace rental for tour", paidByPersonId: "p-ali", paymentMethod: "Cash", location: "Imamia Colony", date: "2026-09-17", time: "07:00", notes: "" },
-    { id: "e-fuel", category: "Fuel", amount: 6000, description: "Vehicle fuel", paidByPersonId: "p-hassan", paymentMethod: "Cash", location: "Timergara", date: "2026-09-17", time: "17:30", notes: "" },
-    { id: "e-food", category: "Food", amount: 4500, description: "Dinner for tour members", paidByPersonId: "p-usman", paymentMethod: "Cash", location: "Kumrat", date: "2026-09-17", time: "21:30", notes: "" },
-  ],
+  people: [],
+  members: [],
+  incomes: [],
+  expenses: [],
 };
 
 export function loadData(): AppData {
