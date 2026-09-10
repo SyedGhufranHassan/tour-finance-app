@@ -1,0 +1,10 @@
+{
+  "name": "Kumrat Tour Finance",
+  "short_name": "Kumrat Finance",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0e1726",
+  "description": "Financial accountability for Kumrat Tour 2K26",
+  "icons": []
+}
