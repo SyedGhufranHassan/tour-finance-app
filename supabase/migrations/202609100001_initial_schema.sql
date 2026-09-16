@@ -20,6 +20,7 @@ create table public.tours (
 create table public.tour_members (
   id uuid primary key default gen_random_uuid(),
   tour_id uuid not null references public.tours(id) on delete cascade,
+  person_id uuid,
   name text not null,
   phone text,
   expected_contribution numeric(12,2) not null default 0 check (expected_contribution >= 0),
@@ -36,6 +37,9 @@ create table public.people (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.tour_members
+  add constraint tour_members_person_id_fkey foreign key (person_id) references public.people(id) on delete restrict;
 
 create table public.income_transactions (
   id uuid primary key default gen_random_uuid(),

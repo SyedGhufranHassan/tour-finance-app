@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownLeft, ArrowUpRight, BarChart3, Check, ChevronRight, CircleDollarSign,
   Compass, Download, FileText, LayoutDashboard, LogOut, MapPinned, Menu, Mountain, Plus, Search, Settings,
@@ -9,6 +9,8 @@ import { addExpense, addIncome, addMember, addPerson, loadData, removeExpense, r
 import { formatDate, formatRs } from "./lib/utils";
 import { downloadReportPdf } from "./lib/pdf";
 import { signOut } from "./lib/repository";
+import { createRemoteMember, deleteRemoteMember, loadRemoteData, updateRemoteMember } from "./lib/repository";
+import { supabase } from "./lib/supabase";
 
 type Page = "Dashboard" | "Income" | "Expenses" | "Members" | "Reports";
 const methods: PaymentMethod[] = ["Cash", "Bank Transfer", "Easypaisa", "JazzCash", "Other Online"];
@@ -24,10 +26,23 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 
 export function App() {
   const [data, setData] = useState<AppData>(loadData);
+  const [dataReady, setDataReady] = useState(!supabase);
+  const [loadError, setLoadError] = useState("");
   const [page, setPage] = useState<Page>("Dashboard");
   const [modal, setModal] = useState<"income" | "expense" | "member" | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!supabase) return;
+    loadRemoteData(data).then((next) => {
+      setData(next);
+      setDataReady(true);
+    }).catch((error: Error) => {
+      setLoadError(error.message || "Could not load your tour data.");
+      setDataReady(true);
+    });
+  }, []);
 
   const refresh = (next: AppData) => setData(next);
   const totalIncome = data.incomes.reduce((sum, item) => sum + item.amount, 0);
@@ -67,7 +82,7 @@ export function App() {
     setModal("member");
   }
 
-  function handleDeleteMember(memberId: string) {
+  async function handleDeleteMember(memberId: string) {
     const member = data.members.find((item) => item.id === memberId);
     if (!member) return;
     if (data.incomes.some((income) => income.memberId === memberId)) {
@@ -75,7 +90,12 @@ export function App() {
       return;
     }
     if (!window.confirm(`Delete ${people[member.personId]}? This member has no payment history.`)) return;
-    refresh(removeMember(data, memberId));
+    try {
+      if (supabase) await deleteRemoteMember(memberId, member.personId);
+      refresh(removeMember(data, memberId));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not delete this member.");
+    }
   }
 
   function exportCsv() {
@@ -83,6 +103,9 @@ export function App() {
     const blob = new Blob([rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "kumrat-tour-transactions.csv"; link.click(); URL.revokeObjectURL(url);
   }
+
+  if (!dataReady) return <div className="auth-loading">Loading your tour data...</div>;
+  if (loadError) return <div className="auth-loading"><p>{loadError}</p></div>;
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -153,6 +176,6 @@ function MemberForm({ data, memberId, onClose, onSaved }: { data: AppData; membe
   const existing = memberId ? data.members.find((member) => member.id === memberId) : undefined;
   const existingPerson = existing ? data.people.find((person) => person.id === existing.personId) : undefined;
   const [name, setName] = useState(existingPerson?.name ?? ""); const [expected, setExpected] = useState(existing ? String(existing.expectedContribution) : ""); const [saving, setSaving] = useState(false);
-  const save = () => { const numeric = Number(expected); if (!name.trim() || !numeric || numeric < 0) return; setSaving(true); if (memberId) onSaved(updateMember(data, memberId, { expectedContribution: numeric }, name.trim())); else { const next = addPerson(data, { name: name.trim() }); const person = next.people.at(-1)!; onSaved(addMember(next, { personId: person.id, expectedContribution: numeric })); } };
+  const save = async () => { const numeric = Number(expected); if (!name.trim() || numeric < 0) return; setSaving(true); try { if (memberId) { const member = data.members.find((item) => item.id === memberId); const person = member ? data.people.find((item) => item.id === member.personId) : undefined; if (supabase && member) await updateRemoteMember(member, person, name.trim(), numeric); onSaved(updateMember(data, memberId, { expectedContribution: numeric }, name.trim())); } else if (supabase) { await createRemoteMember(data.tour.id, name.trim(), numeric); onSaved(await loadRemoteData(data)); } else { const next = addPerson(data, { name: name.trim() }); const person = next.people.at(-1)!; onSaved(addMember(next, { personId: person.id, expectedContribution: numeric })); } } catch (error) { window.alert(error instanceof Error ? error.message : "Could not save this member."); } finally { setSaving(false); } };
   return <Modal title={memberId ? "Edit member" : "Add member"} onClose={onClose}><div className="form-grid"><FormField label="Full name"><input autoFocus placeholder="Ahmed" value={name} onChange={(e) => setName(e.target.value)} /></FormField><FormField label="Expected contribution"><input type="number" inputMode="decimal" min="0" placeholder="Rs. 7,000" value={expected} onChange={(e) => setExpected(e.target.value)} /></FormField></div><button className="save-button" disabled={saving} onClick={save}><Check size={18} /> {memberId ? "Save changes" : "Save member"}</button></Modal>;
 }
