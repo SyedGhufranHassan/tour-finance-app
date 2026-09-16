@@ -56,7 +56,7 @@ export function updateMember(data: AppData, memberId: string, changes: Partial<P
 
 export function removeMember(data: AppData, memberId: string) {
   const member = data.members.find((item) => item.id === memberId);
-  if (!member || data.incomes.some((income) => income.memberId === memberId)) return data;
+  if (!member || data.incomes.some((income) => income.memberId === memberId || income.receivedByPersonId === member.personId) || data.expenses.some((expense) => expense.paidByPersonId === member.personId)) return data;
   const next = {
     ...data,
     members: data.members.filter((item) => item.id !== memberId),
@@ -72,8 +72,20 @@ export function addIncome(data: AppData, income: Omit<Income, "id">) {
   return next;
 }
 
+export function updateIncome(data: AppData, incomeId: string, changes: Partial<Income>) {
+  const next = { ...data, incomes: data.incomes.map((item) => item.id === incomeId ? { ...item, ...changes } : item) };
+  saveData(next);
+  return next;
+}
+
 export function addExpense(data: AppData, expense: Omit<Expense, "id">) {
   const next = { ...data, expenses: [...data.expenses, { ...expense, id: uid("expense") }] };
+  saveData(next);
+  return next;
+}
+
+export function updateExpense(data: AppData, expenseId: string, changes: Partial<Expense>) {
+  const next = { ...data, expenses: data.expenses.map((item) => item.id === expenseId ? { ...item, ...changes } : item) };
   saveData(next);
   return next;
 }
