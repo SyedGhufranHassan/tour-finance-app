@@ -44,6 +44,28 @@ export function addMember(data: AppData, member: Omit<Member, "id">) {
   return next;
 }
 
+export function updateMember(data: AppData, memberId: string, changes: Partial<Pick<Member, "expectedContribution" | "notes">>, personName?: string) {
+  const current = data.members.find((member) => member.id === memberId);
+  if (!current) return data;
+  const members = data.members.map((member) => member.id === memberId ? { ...member, ...changes } : member);
+  const people = personName === undefined ? data.people : data.people.map((person) => person.id === current.personId ? { ...person, name: personName } : person);
+  const next = { ...data, members, people };
+  saveData(next);
+  return next;
+}
+
+export function removeMember(data: AppData, memberId: string) {
+  const member = data.members.find((item) => item.id === memberId);
+  if (!member || data.incomes.some((income) => income.memberId === memberId)) return data;
+  const next = {
+    ...data,
+    members: data.members.filter((item) => item.id !== memberId),
+    people: data.people.filter((person) => person.id !== member.personId),
+  };
+  saveData(next);
+  return next;
+}
+
 export function addIncome(data: AppData, income: Omit<Income, "id">) {
   const next = { ...data, incomes: [...data.incomes, { ...income, id: uid("income") }] };
   saveData(next);

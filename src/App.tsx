@@ -2,10 +2,10 @@ import { useState } from "react";
 import {
   ArrowDownLeft, ArrowUpRight, BarChart3, Check, ChevronRight, CircleDollarSign,
   Compass, Download, FileText, LayoutDashboard, LogOut, MapPinned, Menu, Mountain, Plus, Search, Settings,
-  Trash2, Users, Wallet, X,
+  Edit3, Trash2, Users, Wallet, X,
 } from "lucide-react";
 import type { AppData, Expense, ExpenseCategory, Income, PaymentMethod } from "./types";
-import { addExpense, addIncome, addMember, addPerson, loadData, removeExpense, removeIncome } from "./lib/store";
+import { addExpense, addIncome, addMember, addPerson, loadData, removeExpense, removeIncome, removeMember, updateMember } from "./lib/store";
 import { formatDate, formatRs } from "./lib/utils";
 import { downloadReportPdf } from "./lib/pdf";
 import { signOut } from "./lib/repository";
@@ -26,6 +26,7 @@ export function App() {
   const [data, setData] = useState<AppData>(loadData);
   const [page, setPage] = useState<Page>("Dashboard");
   const [modal, setModal] = useState<"income" | "expense" | "member" | null>(null);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   const refresh = (next: AppData) => setData(next);
@@ -56,6 +57,27 @@ export function App() {
     }
   }
 
+  function openNewMember() {
+    setEditingMemberId(null);
+    setModal("member");
+  }
+
+  function openEditMember(memberId: string) {
+    setEditingMemberId(memberId);
+    setModal("member");
+  }
+
+  function handleDeleteMember(memberId: string) {
+    const member = data.members.find((item) => item.id === memberId);
+    if (!member) return;
+    if (data.incomes.some((income) => income.memberId === memberId)) {
+      window.alert("This member has payment history. Delete the related income records first so financial history stays safe.");
+      return;
+    }
+    if (!window.confirm(`Delete ${people[member.personId]}? This member has no payment history.`)) return;
+    refresh(removeMember(data, memberId));
+  }
+
   function exportCsv() {
     const rows = [["Type", "Amount", "Category/Member", "Person", "Method", "Location", "Date", "Time"], ...data.expenses.map((e) => ["Expense", String(e.amount), e.category, people[e.paidByPersonId], e.paymentMethod, e.location, e.date, e.time]), ...data.incomes.map((i) => ["Income", String(i.amount), people[members[i.memberId]?.personId], people[i.receivedByPersonId], i.paymentMethod, "", i.date, i.time])];
     const blob = new Blob([rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n")], { type: "text/csv" });
@@ -70,19 +92,19 @@ export function App() {
       <div className="sidebar-bottom"><button className="nav-item"><Settings size={18} />Settings</button><button className="nav-item logout-item" onClick={handleLogout}><LogOut size={18} />Log out</button><small>17–18 September 2026</small></div>
     </aside>
     <main className="main">
-      <header className="topbar"><button className="mobile-menu icon-button" aria-label="Menu"><Menu size={21} /></button><div><p className="eyebrow">Thursday, 17 September 2026</p><h1>{page}</h1></div><div className="top-actions"><label className="search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search transactions..." /></label><button className="avatar">A</button></div></header>
+      <header className="topbar"><button className="mobile-menu icon-button" aria-label="Menu"><Menu size={21} /></button><div><p className="eyebrow">Thursday, 17 September 2026</p><h1>{page}</h1></div><div className="top-actions"><label className="search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search transactions..." /></label><button className="avatar" onClick={handleLogout} aria-label="Log out" title="Log out">A</button></div></header>
       <div className="page-transition" key={page}>
         {page === "Dashboard" && <Dashboard data={data} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} cashIncome={cashIncome} cashExpenses={cashExpenses} categoriesTotal={categoriesTotal} recent={recent} people={people} members={members} memberPaid={memberPaid} onAdd={(kind) => setModal(kind)} />}
         {page === "Income" && <TransactionPage title="Income" subtitle="Member contributions and money received" type="income" data={data} people={people} members={members} query={query} onAdd={() => setModal("income")} onDelete={handleDelete} />}
         {page === "Expenses" && <TransactionPage title="Expenses" subtitle="Every rupee spent, traceable" type="expense" data={data} people={people} members={members} query={query} onAdd={() => setModal("expense")} onDelete={handleDelete} />}
-        {page === "Members" && <MembersPage data={data} people={people} memberPaid={memberPaid} onAdd={() => setModal("member")} />}
+        {page === "Members" && <MembersPage data={data} people={people} memberPaid={memberPaid} onAdd={openNewMember} onEdit={openEditMember} onDelete={handleDeleteMember} />}
         {page === "Reports" && <Reports data={data} people={people} members={members} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} categoriesTotal={categoriesTotal} exportCsv={exportCsv} exportPdf={(mode) => downloadReportPdf(data, mode)} />}
       </div>
     </main>
     <nav className="mobile-nav" aria-label="Mobile navigation">{([["Dashboard", LayoutDashboard], ["Income", ArrowDownLeft], ["Expenses", ArrowUpRight], ["Members", Users], ["Reports", BarChart3]] as const).map(([label, Icon]) => <button key={label} className={page === label ? "mobile-nav-item active" : "mobile-nav-item"} onClick={() => setPage(label)}><Icon size={18} /><span>{label}</span></button>)}</nav>
     {modal === "income" && <IncomeForm data={data} people={people} members={members} onClose={() => setModal(null)} onSaved={(next) => { refresh(next); setModal(null); }} />}
     {modal === "expense" && <ExpenseForm data={data} people={people} onClose={() => setModal(null)} onSaved={(next) => { refresh(next); setModal(null); }} />}
-    {modal === "member" && <MemberForm data={data} onClose={() => setModal(null)} onSaved={(next) => { refresh(next); setModal(null); }} />}
+    {modal === "member" && <MemberForm data={data} memberId={editingMemberId} onClose={() => { setModal(null); setEditingMemberId(null); }} onSaved={(next) => { refresh(next); setModal(null); setEditingMemberId(null); }} />}
     <div className="fab-wrap"><button className="fab" onClick={() => setModal("expense")}><Plus size={22} />Add transaction</button></div>
   </div>;
 }
@@ -105,8 +127,8 @@ function TransactionPage({ title, subtitle, type, data, people, members, query, 
   return <div className="content"><div className="page-intro"><div><p className="eyebrow">Transaction ledger</p><h2>{title}</h2><p>{subtitle}</p></div><button className="primary-button" onClick={onAdd}><Plus size={18} /> Add {isIncome ? "income" : "expense"}</button></div><div className="filter-strip"><button className="filter active">All</button><button className="filter">Cash</button><button className="filter">Online</button><span className="filter-spacer" /><span className="muted">{rows.length} records</span></div><section className="panel list-panel">{rows.length ? rows.map((item) => isIncome ? <div className="ledger-row" key={item.id}><div className="activity-icon income"><ArrowDownLeft size={17} /></div><div className="activity-main"><strong>{people[members[(item as Income).memberId]?.personId]}</strong><span>Received by {people[(item as Income).receivedByPersonId]} · {(item as Income).paymentMethod}</span></div><div className="activity-meta"><strong className="positive-text">+{formatRs(item.amount)}</strong><span>{formatDate(item.date)} · {item.time}</span></div><button className="delete-button" onClick={() => onDelete("income", item.id)} aria-label="Delete income"><Trash2 size={16} /></button></div> : <div className="ledger-row" key={item.id}><div className="activity-icon expense"><ArrowUpRight size={17} /></div><div className="activity-main"><strong>{(item as Expense).description}</strong><span>{(item as Expense).category} · {people[(item as Expense).paidByPersonId]} · {(item as Expense).location}</span></div><div className="activity-meta"><strong>-{formatRs(item.amount)}</strong><span>{formatDate(item.date)} · {item.time}</span></div><button className="delete-button" onClick={() => onDelete("expense", item.id)} aria-label="Delete expense"><Trash2 size={16} /></button></div>) : <EmptyState text={`No ${title.toLowerCase()} match your search`} />}</section></div>;
 }
 
-function MembersPage({ data, people, memberPaid, onAdd }: { data: AppData; people: Record<string, string>; memberPaid: (id: string) => number; onAdd: () => void }) {
-  return <div className="content"><div className="page-intro"><div><p className="eyebrow">People & contributions</p><h2>Members</h2><p>Expected contribution and payment status at a glance.</p></div><button className="primary-button" onClick={onAdd}><Plus size={18} /> Add member</button></div><section className="member-grid">{data.members.map((member) => { const paid = memberPaid(member.id); const status = paid === 0 ? "Pending" : paid < member.expectedContribution ? "Partial" : "Paid"; return <article className="member-card" key={member.id}><div className="member-top"><div className="avatar large">{people[member.personId]?.[0]}</div><div><h3>{people[member.personId]}</h3><span className={`status ${status.toLowerCase()}`}>{status}</span></div><ChevronRight size={18} className="muted" /></div><div className="member-values"><div><small>Paid</small><strong>{formatRs(paid)}</strong></div><div><small>Expected</small><strong>{formatRs(member.expectedContribution)}</strong></div><div><small>Remaining</small><strong>{formatRs(Math.max(0, member.expectedContribution - paid))}</strong></div></div><div className="progress"><span style={{ width: `${Math.min(100, (paid / member.expectedContribution) * 100)}%` }} /></div></article> })}</section></div>;
+function MembersPage({ data, people, memberPaid, onAdd, onEdit, onDelete }: { data: AppData; people: Record<string, string>; memberPaid: (id: string) => number; onAdd: () => void; onEdit: (id: string) => void; onDelete: (id: string) => void }) {
+  return <div className="content"><div className="page-intro"><div><p className="eyebrow">People & contributions</p><h2>Members</h2><p>Expected contribution and payment status at a glance.</p></div><button className="primary-button" onClick={onAdd}><Plus size={18} /> Add member</button></div><section className="member-grid">{data.members.length ? data.members.map((member) => { const paid = memberPaid(member.id); const status = paid === 0 ? "Pending" : paid < member.expectedContribution ? "Partial" : "Paid"; return <article className="member-card" key={member.id}><div className="member-top"><div className="avatar large">{people[member.personId]?.[0]}</div><div><h3>{people[member.personId]}</h3><span className={`status ${status.toLowerCase()}`}>{status}</span></div><div className="member-actions"><button className="card-action" onClick={() => onEdit(member.id)} aria-label={`Edit ${people[member.personId]}`} title="Edit member"><Edit3 size={15} /></button><button className="card-action danger" onClick={() => onDelete(member.id)} aria-label={`Delete ${people[member.personId]}`} title="Delete member"><Trash2 size={15} /></button></div></div><div className="member-values"><div><small>Paid</small><strong>{formatRs(paid)}</strong></div><div><small>Expected</small><strong>{formatRs(member.expectedContribution)}</strong></div><div><small>Remaining</small><strong>{formatRs(Math.max(0, member.expectedContribution - paid))}</strong></div></div><div className="progress"><span style={{ width: `${member.expectedContribution ? Math.min(100, (paid / member.expectedContribution) * 100) : 0}%` }} /></div></article> }) : <div className="member-empty"><Users size={26} /><strong>No members yet</strong><span>Add your first tour member to start tracking contributions.</span><button className="primary-button" onClick={onAdd}><Plus size={17} /> Add member</button></div>}</section></div>;
 }
 
 function Reports({ data, people, members, totalIncome, totalExpenses, balance, categoriesTotal, exportCsv, exportPdf }: { data: AppData; people: Record<string, string>; members: Record<string, AppData["members"][number]>; totalIncome: number; totalExpenses: number; balance: number; categoriesTotal: { category: ExpenseCategory; amount: number }[]; exportCsv: () => void; exportPdf: (mode: "complete" | "members" | "income" | "expenses") => void }) {
@@ -127,8 +149,10 @@ function ExpenseForm({ data, people, onClose, onSaved }: { data: AppData; people
   return <Modal title="Add expense" onClose={onClose}><div className="form-grid"><FormField label="Category"><select value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>{categories.map((c) => <option key={c}>{c}</option>)}</select></FormField><FormField label="Amount"><input autoFocus type="number" inputMode="decimal" placeholder="Rs. 4,500" value={amount} onChange={(e) => setAmount(e.target.value)} /></FormField><FormField label="What was it for?"><input placeholder="Vehicle fuel" value={description} onChange={(e) => setDescription(e.target.value)} /></FormField><FormField label="Paid by"><select value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>{Object.entries(people).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></FormField><FormField label="Payment method"><select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>{methods.map((m) => <option key={m}>{m}</option>)}</select></FormField><FormField label="Location"><input placeholder="Timergara" value={location} onChange={(e) => setLocation(e.target.value)} /></FormField></div><button className="save-button" disabled={saving} onClick={save}>{saving ? "Saving..." : <><Check size={18} /> Save expense</>}</button></Modal>;
 }
 
-function MemberForm({ data, onClose, onSaved }: { data: AppData; onClose: () => void; onSaved: (data: AppData) => void }) {
-  const [name, setName] = useState(""); const [expected, setExpected] = useState(""); const [saving, setSaving] = useState(false);
-  const save = () => { const numeric = Number(expected); if (!name || !numeric) return; setSaving(true); const next = addPerson(data, { name }); const person = next.people.at(-1)!; onSaved(addMember(next, { personId: person.id, expectedContribution: numeric })); };
-  return <Modal title="Add member" onClose={onClose}><div className="form-grid"><FormField label="Full name"><input autoFocus placeholder="Ahmed" value={name} onChange={(e) => setName(e.target.value)} /></FormField><FormField label="Expected contribution"><input type="number" inputMode="decimal" placeholder="Rs. 7,000" value={expected} onChange={(e) => setExpected(e.target.value)} /></FormField></div><button className="save-button" disabled={saving} onClick={save}><Check size={18} /> Save member</button></Modal>;
+function MemberForm({ data, memberId, onClose, onSaved }: { data: AppData; memberId: string | null; onClose: () => void; onSaved: (data: AppData) => void }) {
+  const existing = memberId ? data.members.find((member) => member.id === memberId) : undefined;
+  const existingPerson = existing ? data.people.find((person) => person.id === existing.personId) : undefined;
+  const [name, setName] = useState(existingPerson?.name ?? ""); const [expected, setExpected] = useState(existing ? String(existing.expectedContribution) : ""); const [saving, setSaving] = useState(false);
+  const save = () => { const numeric = Number(expected); if (!name.trim() || !numeric || numeric < 0) return; setSaving(true); if (memberId) onSaved(updateMember(data, memberId, { expectedContribution: numeric }, name.trim())); else { const next = addPerson(data, { name: name.trim() }); const person = next.people.at(-1)!; onSaved(addMember(next, { personId: person.id, expectedContribution: numeric })); } };
+  return <Modal title={memberId ? "Edit member" : "Add member"} onClose={onClose}><div className="form-grid"><FormField label="Full name"><input autoFocus placeholder="Ahmed" value={name} onChange={(e) => setName(e.target.value)} /></FormField><FormField label="Expected contribution"><input type="number" inputMode="decimal" min="0" placeholder="Rs. 7,000" value={expected} onChange={(e) => setExpected(e.target.value)} /></FormField></div><button className="save-button" disabled={saving} onClick={save}><Check size={18} /> {memberId ? "Save changes" : "Save member"}</button></Modal>;
 }
